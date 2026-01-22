@@ -1,4 +1,4 @@
-const { observations } = require("../data/stores");
+const observations = require("../data/stores");
 const { mapFHIRObservation } = require("../utils/fhirAdapter");
 
 // Add new observation with validation

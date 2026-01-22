@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { addObservation, getObservations } = require("../services/observations_service");
+const {addObservation, getObservations} = require("../services/observations_service");
 const { mapFHIRObservation } = require("../utils/fhirAdapter");
 
 // POST /api/fhir/observation
