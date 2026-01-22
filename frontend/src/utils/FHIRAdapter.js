@@ -1,14 +1,54 @@
 export const mapFHIRToUI = (obs) => {
-  const bmi = obs.component.find(c => c.code.coding[0].code === "39156-5")?.valueQuantity?.value || 0;
-  const systolic = obs.component.find(c => c.code.coding[0].code === "8480-6")?.valueQuantity?.value || 0;
-  const diastolic = obs.component.find(c => c.code.coding[0].code === "8462-4")?.valueQuantity?.value || 0;
-  const date = obs.effectiveDateTime || new Date().toISOString();
-  let category="", color="";
-  if(bmi<18.5){category="Underweight"; color="blue";}
-  else if(bmi<25){category="Normal"; color="green";}
-  else if(bmi<30){category="Overweight"; color="orange";}
-  else{category="Obese"; color="red";}
-  if(bmi>=30||systolic>=140||diastolic>=90) color="red";
+  const components = obs.component || [];
 
-  return { patientId: obs.patientId || obs.subject.reference.replace("Patient/",""), bmi, category, color, systolic, diastolic, date };
+  const getValue = (code) =>
+    Number(
+      components.find(c => c.code?.coding?.[0]?.code === code)
+        ?.valueQuantity?.value || 0
+    );
+
+  const bmi = getValue("39156-5");
+  const systolic = getValue("8480-6");
+  const diastolic = getValue("8462-4");
+
+  // ---- BMI STATUS ----
+  let bmiStatus = "Underweight";
+  let bmiColor = "gray";
+
+  if (bmi >= 18.5 && bmi < 25) {
+    bmiStatus = "Normal";
+    bmiColor = "green";
+  } else if (bmi >= 25 && bmi < 30) {
+    bmiStatus = "Overweight";
+    bmiColor = "orange";
+  } else if (bmi >= 30) {
+    bmiStatus = "Obese";
+    bmiColor = "red";
+  }
+  
+
+
+  // ---- BP STATUS ----
+  let bpStatus = "Normal";
+  let bpColor = "green";
+
+  if (systolic >= 140 || diastolic >= 90) {
+    bpStatus = "High";
+    bpColor = "red";
+  } else if (systolic >= 120 || diastolic >= 80) {
+    bpStatus = "Elevated";
+    bpColor = "orange";
+  }
+
+  return {
+    patientId: obs.subject?.reference?.replace("Patient/", "") || "Unknown",
+    bmi,
+    systolic,
+    diastolic,
+    bmiStatus,
+    bpStatus,
+    bmiColor,
+    bpColor,
+    date: obs.effectiveDateTime
+  };
 };

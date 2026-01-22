@@ -1,39 +1,48 @@
 const observations = require("../data/stores");
-const { mapFHIRObservation } = require("../utils/fhirAdapter");
+const { createFHIRObservation } = require("../utils/fhirAdapter");
+const { v4: uuidv4 } = require("uuid");
 
-// Add new observation with validation
-const addObservation = (obs) => {
-  const height = obs.component.find(c => c.code.coding[0].code === "8302-2")?.valueQuantity?.value;
-  const weight = obs.component.find(c => c.code.coding[0].code === "29463-7")?.valueQuantity?.value;
-  const systolic = obs.component.find(c => c.code.coding[0].code === "8480-6")?.valueQuantity?.value;
-  const diastolic = obs.component.find(c => c.code.coding[0].code === "8462-4")?.valueQuantity?.value;
+// Validate observation payload
+const validateObservation = (obs) => {
+  if (!obs.component || !Array.isArray(obs.component)) throw new Error("Observation must have a component array");
 
-  if (!height && !weight && !systolic && !diastolic) {
-    throw new Error("Cannot store empty observation");
-  }
+  const getValue = (code) =>
+    Number(obs.component.find(c => c.code?.coding?.[0]?.code === code)?.valueQuantity?.value ?? 0);
 
-  observations.push(obs);
-  return obs;
+  const height = getValue("8302-2");
+  const weight = getValue("29463-7");
+  const systolic = getValue("8480-6");
+  const diastolic = getValue("8462-4");
+
+  if (!height || !weight) throw new Error("Height and Weight are required");
+
+  return { height, weight, systolic, diastolic };
 };
 
-// GET observations with optional search & filter
-const getObservations = (patientId, filter) => {
+// Add or replace observation by Patient ID
+const addObservation = (obsPayload) => {
+  const patientId = obsPayload.subject?.reference?.replace("Patient/", "") || obsPayload.patientId;
+  const { height, weight, systolic, diastolic } = validateObservation(obsPayload);
+
+  const bmi = obsPayload.component.find(c => c.code?.coding?.[0]?.code === "39156-5")?.valueQuantity?.value ?? 0;
+
+  // Check if observation for this patient already exists
+  const index = observations.findIndex(o => (o.subject?.reference?.replace("Patient/", "") || o.patientId) === patientId);
+  const newObs = { id: uuidv4(), patientId, height, weight, systolic, diastolic, bmi, date: obsPayload.effectiveDateTime || new Date().toISOString(), subject: { reference: `Patient/${patientId}` } };
+
+  if (index >= 0) {
+    observations[index] = newObs; // Replace existing
+  } else {
+    observations.push(newObs);
+  }
+
+  return newObs;
+};
+
+// Get all observations (optionally filter by Patient ID)
+const getObservations = (patientId) => {
   let result = observations;
-
-  if (patientId) {
-    result = result.filter(o => o.subject.reference === `Patient/${patientId}`);
-  }
-
-  if (filter && filter !== "All") {
-    result = result.filter(o => {
-      const mapped = mapFHIRObservation(o);
-      if (filter === "Normal") return mapped.bmi >= 18.5 && mapped.bmi < 25;
-      if (filter === "Overweight") return mapped.bmi >= 25 && mapped.bmi < 30;
-      if (filter === "Obese") return mapped.bmi >= 30;
-      return true;
-    });
-  }
-
+  if (patientId) result = result.filter(o => (o.subject?.reference?.replace("Patient/", "") || o.patientId) === patientId);
   return result;
 };
 

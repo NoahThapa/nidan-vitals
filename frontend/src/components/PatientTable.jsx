@@ -1,5 +1,7 @@
+// frontend/src/components/PatientTable.jsx
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { mapFHIRToUI } from "../utils/FHIRAdapter";
 
 export default function PatientTable({ refreshFlag }) {
   const [patients, setPatients] = useState([]);
@@ -7,6 +9,7 @@ export default function PatientTable({ refreshFlag }) {
   const [filter, setFilter] = useState("All");
   const [loading, setLoading] = useState(false);
 
+  // Fetch patients from backend
   useEffect(() => {
     let isMounted = true;
 
@@ -24,8 +27,8 @@ export default function PatientTable({ refreshFlag }) {
 
         if (isMounted) setPatients(res.data);
       } catch (err) {
-        if (isMounted) setPatients([]);
         console.error(err);
+        if (isMounted) setPatients([]);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -38,40 +41,15 @@ export default function PatientTable({ refreshFlag }) {
     };
   }, [searchId, filter, refreshFlag]);
 
-  const getPatientData = (obs) => {
-    const bmi =
-      obs.component.find((c) => c.code.coding[0].code === "39156-5")
-        ?.valueQuantity?.value || 0;
-
-    const systolic =
-      obs.component.find((c) => c.code.coding[0].code === "8480-6")
-        ?.valueQuantity?.value || 0;
-
-    const diastolic =
-      obs.component.find((c) => c.code.coding[0].code === "8462-4")
-        ?.valueQuantity?.value || 0;
-
-    let category = "";
-    let color = "";
-
-    if (bmi < 18.5) {
-      category = "Underweight";
-      color = "blue-500";
-    } else if (bmi < 25) {
-      category = "Normal";
-      color = "green-500";
-    } else if (bmi < 30) {
-      category = "Overweight";
-      color = "orange-500";
-    } else {
-      category = "Obese";
-      color = "red-600";
-    }
-
-    // Red alert override
-    if (bmi >= 30 || systolic >= 140 || diastolic >= 90) color = "red-700";
-
-    return { bmi, category, color, systolic, diastolic };
+  // Map color string to Tailwind class
+  const getColorClass = (color) => {
+    return {
+      red: "bg-red-500",
+      green: "bg-green-500",
+      orange: "bg-orange-500",
+      blue: "bg-blue-500",
+      gray: "bg-gray-400",
+    }[color] || "bg-gray-400";
   };
 
   return (
@@ -113,7 +91,7 @@ export default function PatientTable({ refreshFlag }) {
           <table className="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
             <thead className="bg-gray-100">
               <tr>
-                {["Patient ID", "BMI", "Systolic BP", "Diastolic BP", "Status"].map(
+                {["Patient ID", "BMI", "Systolic BP", "Diastolic BP", "BMI Status", "BP Status"].map(
                   (head) => (
                     <th
                       key={head}
@@ -127,27 +105,36 @@ export default function PatientTable({ refreshFlag }) {
             </thead>
             <tbody>
               {patients.map((obs, i) => {
-                const { bmi, category, color, systolic, diastolic } =
-                  getPatientData(obs);
+                const { bmi, bmiStatus, bmiColor, systolic, diastolic, bpStatus, bpColor, patientId } =
+                  mapFHIRToUI(obs);
 
                 return (
                   <tr
-                    key={i}
+                    key={obs?.id || i}
                     className={`hover:bg-gray-50 transition-colors duration-150 ${
                       i % 2 === 0 ? "bg-white" : "bg-gray-50"
                     }`}
                   >
-                    <td className="px-4 py-2 border-b border-gray-200">
-                      {obs.subject.reference.replace("Patient/", "")}
-                    </td>
+                    <td className="px-4 py-2 border-b border-gray-200">{patientId}</td>
                     <td className="px-4 py-2 border-b border-gray-200">{bmi}</td>
                     <td className="px-4 py-2 border-b border-gray-200">{systolic}</td>
                     <td className="px-4 py-2 border-b border-gray-200">{diastolic}</td>
                     <td className="px-4 py-2 border-b border-gray-200">
                       <span
-                        className={`px-3 py-1 rounded-full text-white font-semibold text-sm bg-${color}`}
+                        className={`px-3 py-1 rounded-full text-white font-semibold text-sm ${getColorClass(
+                          bmiColor
+                        )}`}
                       >
-                        {category}
+                        {bmiStatus}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 border-b border-gray-200">
+                      <span
+                        className={`px-3 py-1 rounded-full text-white font-semibold text-sm ${getColorClass(
+                          bpColor
+                        )}`}
+                      >
+                        {bpStatus}
                       </span>
                     </td>
                   </tr>
