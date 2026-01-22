@@ -118,6 +118,11 @@ Response: Saved observation in FHIR format
 
 GET /api/fhir/observation
 
+
+
+VIDEO DEMO:
+[App Demo](assets/demo.gif)
+
 Get all observations
 
 Optional query: ?patientId=p-101 to filter by patient ID
