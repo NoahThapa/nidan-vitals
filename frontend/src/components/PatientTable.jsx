@@ -18,14 +18,23 @@ export default function PatientTable({ refreshFlag }) {
       try {
         const query = [];
         if (searchId) query.push(`patientId=${searchId}`);
-        if (filter !== "All") query.push(`filter=${filter}`);
         const queryString = query.length ? "?" + query.join("&") : "";
 
         const res = await axios.get(
           `http://localhost:5000/api/fhir/observation${queryString}`
         );
 
-        if (isMounted) setPatients(res.data);
+        if (isMounted) {
+          // Map FHIR → UI
+          let data = res.data.map(mapFHIRToUI);
+
+          // Filter by BMI category if not "All"
+          if (filter !== "All") {
+            data = data.filter(p => p.bmiStatus === filter);
+          }
+
+          setPatients(data);
+        }
       } catch (err) {
         console.error(err);
         if (isMounted) setPatients([]);
@@ -63,7 +72,7 @@ export default function PatientTable({ refreshFlag }) {
           className="border p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 flex-1"
         />
         <div className="flex gap-2">
-          {["All", "Normal", "Overweight", "Obese"].map((f) => (
+          {["All", "Underweight", "Normal", "Overweight", "Obese"].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
@@ -105,8 +114,8 @@ export default function PatientTable({ refreshFlag }) {
             </thead>
             <tbody>
               {patients.map((obs, i) => {
-                const { bmi, bmiStatus, bmiColor, systolic, diastolic, bpStatus, bpColor, patientId } =
-                  mapFHIRToUI(obs);
+                const { bmi, bmiStatus, bpStatus, bmiColor, bpColor, systolic, diastolic, patientId } =
+                  obs;
 
                 return (
                   <tr
